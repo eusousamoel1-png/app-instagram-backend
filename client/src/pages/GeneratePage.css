@@ -1,0 +1,55 @@
+/* ── GeneratePage Styles ──────────────────────── */
+.generate-page {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.generate-config {
+  margin-bottom: 32px;
+}
+
+.generate-btn {
+  width: 100%;
+  margin-top: 24px;
+  padding: 18px 32px;
+  font-size: var(--font-size-base);
+}
+
+/* Schedule Modal */
+.schedule-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 24px;
+}
+
+.schedule-modal {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  padding: 32px;
+  max-width: 460px;
+  width: 100%;
+  box-shadow: var(--shadow-lg);
+}
+
+.schedule-modal h3 {
+  font-size: var(--font-size-xl);
+  margin-bottom: 8px;
+}
+
+.schedule-modal p {
+  color: var(--text-secondary);
+  font-size: var(--font-size-sm);
+  margin-bottom: 20px;
+}
+
+/* DateTimePicker dark theme override */
+.schedule-modal input[type="datetime-local"] {
+  color-scheme: dark;
+}

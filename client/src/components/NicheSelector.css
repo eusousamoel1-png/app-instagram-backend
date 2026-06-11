@@ -1,0 +1,38 @@
+/* ── NicheSelector Styles ─────────────────────── */
+.niche-selector {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.niche-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.niche-chip {
+  padding: 8px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-full);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.niche-chip:hover {
+  border-color: var(--accent-purple);
+  color: var(--text-primary);
+  background: rgba(131, 58, 180, 0.08);
+}
+
+.niche-chip.active {
+  background: var(--gradient-instagram);
+  color: white;
+  border-color: transparent;
+  box-shadow: var(--shadow-glow-purple);
+}

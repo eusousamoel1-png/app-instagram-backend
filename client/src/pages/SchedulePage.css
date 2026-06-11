@@ -1,0 +1,54 @@
+/* ── SchedulePage Styles ──────────────────────── */
+.schedule-page {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.schedule-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.timeline-group {
+  position: relative;
+}
+
+.timeline-date {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.timeline-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--gradient-instagram);
+  box-shadow: var(--shadow-glow-purple);
+  flex-shrink: 0;
+}
+
+.timeline-date h3 {
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: capitalize;
+}
+
+.timeline-posts {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  padding-left: 24px;
+  border-left: 2px solid var(--border-color);
+  margin-left: 5px;
+}
+
+@media (max-width: 640px) {
+  .timeline-posts {
+    grid-template-columns: 1fr;
+    padding-left: 16px;
+  }
+}

@@ -5,22 +5,31 @@
 const admin = require('firebase-admin');
 const path = require('path');
 
+const fs = require('fs');
+
 // Inicializar Firebase Admin
+// Resolve path: if env var is set use it (resolved from CWD), otherwise default to server root
 const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH
-  || path.join(__dirname, '../../firebase-service-account.json');
+  ? path.resolve(process.env.FIREBASE_SERVICE_ACCOUNT_PATH)
+  : path.join(__dirname, '../../firebase-service-account.json');
 
 let db;
 
 try {
-  const serviceAccount = require(serviceAccountPath);
+  // Use fs + JSON.parse instead of require() to avoid caching issues and
+  // properly resolve paths relative to CWD rather than __dirname
+  const serviceAccountRaw = fs.readFileSync(serviceAccountPath, 'utf8');
+  const serviceAccount = JSON.parse(serviceAccountRaw);
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
-    projectId: 'app-postagem-instagram',
+    projectId: serviceAccount.project_id || 'app-postagem-instagram',
   });
   db = admin.firestore();
   console.log('✅ Firebase Admin inicializado com sucesso');
+  console.log(`   📁 Service account: ${serviceAccountPath}`);
 } catch (error) {
   console.warn('⚠️  Firebase Admin não inicializado:', error.message);
+  console.warn(`   📁 Caminho tentado: ${serviceAccountPath}`);
   console.warn('   Certifique-se de que o arquivo firebase-service-account.json existe');
 }
 

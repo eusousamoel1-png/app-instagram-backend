@@ -4,15 +4,29 @@
  */
 const OpenAI = require('openai');
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Validate API key
+const apiKey = process.env.OPENAI_API_KEY;
+const isValidKey = apiKey && !apiKey.includes('dummy') && !apiKey.includes('SEU_') && apiKey.startsWith('sk-');
+
+if (!isValidKey) {
+  console.warn('⚠️  OpenAI API Key não configurada ou inválida. Geração de conteúdo com IA estará desativada.');
+  console.warn('   Configure OPENAI_API_KEY no arquivo .env com uma chave válida.');
+}
+
+const openai = isValidKey ? new OpenAI({ apiKey }) : null;
+
+function ensureOpenAI() {
+  if (!openai) {
+    throw new Error('OpenAI não configurada. Defina OPENAI_API_KEY com uma chave válida no .env');
+  }
+}
 
 /**
  * Gerar imagem com DALL-E 3 baseada no nicho
  * Retorna URL temporária da imagem (válida por ~1h)
  */
 async function generateImage(niche, style = 'vibrant') {
+  ensureOpenAI();
   const prompt = buildImagePrompt(niche, style);
 
   console.log(`🎨 Gerando imagem para nicho: "${niche}"...`);
@@ -38,6 +52,7 @@ async function generateImage(niche, style = 'vibrant') {
  * Gerar legenda e hashtags com GPT-4o
  */
 async function generateCaption(niche, keywords = [], tone = 'profissional e motivador') {
+  ensureOpenAI();
   console.log(`✍️  Gerando legenda para nicho: "${niche}"...`);
 
   const systemPrompt = `Você é um social media manager especialista em Instagram para marcas brasileiras do nicho de ${niche}. 

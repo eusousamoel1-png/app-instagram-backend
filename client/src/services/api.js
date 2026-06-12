@@ -27,9 +27,9 @@ api.interceptors.request.use(async (config) => {
 
 // ── Auth ──────────────────────────────────────────
 
-export function getLoginUrl() {
-  const uid = auth.currentUser ? auth.currentUser.uid : '';
-  return `${API_BASE}/auth/instagram?uid=${uid}`;
+export async function loginInstagramDirect(username, password) {
+  const res = await api.post('/auth/login-direct', { username, password });
+  return res.data;
 }
 
 export async function getAuthStatus() {

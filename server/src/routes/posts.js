@@ -4,7 +4,8 @@
 const express = require('express');
 const router = express.Router();
 const firebaseService = require('../services/firebaseService');
-const instagramService = require('../services/instagramService');
+const instagramPrivateService = require('../services/instagramPrivateService');
+const axios = require('axios');
 const { requireAuth } = require('../middleware/authMiddleware');
 const { publishLimiter } = require('../middleware/rateLimiter');
 
@@ -253,7 +254,7 @@ router.post('/:id/publish', requireAuth, publishLimiter, async (req, res) => {
 
     // Note: get igConfig for the user
     const config = await firebaseService.getConfig(uid);
-    if (!config || !config.accessToken) {
+    if (!config || !config.igSession) {
       throw new Error('Instagram não conectado para este usuário.');
     }
 
@@ -261,12 +262,15 @@ router.post('/:id/publish', requireAuth, publishLimiter, async (req, res) => {
       ? `${post.caption}\n\n${post.hashtags}`
       : post.caption;
 
+    // Download the image as a buffer
+    const imageResponse = await axios.get(post.imageUrl, { responseType: 'arraybuffer' });
+    const imageBuffer = Buffer.from(imageResponse.data);
+
     // Publicar
-    const result = await instagramService.publishPost(
-      config.igUserId,
-      post.imageUrl,
-      fullCaption,
-      config.accessToken
+    const result = await instagramPrivateService.publishPhoto(
+      uid,
+      imageBuffer,
+      fullCaption
     );
 
     // Atualizar status

@@ -5,15 +5,17 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { getPosts, getPostStats, publishPostNow, deletePost } from '../services/api';
 import PostCard from '../components/PostCard';
+import InstagramLoginModal from '../components/InstagramLoginModal';
 import toast from 'react-hot-toast';
 import './DashboardPage.css';
 
 export default function DashboardPage() {
-  const { user, instagramData } = useAuth();
+  const { user, instagramData, checkAuth } = useAuth();
   const [posts, setPosts] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState(null);
+  const [showIgModal, setShowIgModal] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -72,7 +74,7 @@ export default function DashboardPage() {
         <div className="flex-between">
           <div>
             <h1>Dashboard</h1>
-            <p>Bem-vindo, @{user?.username} 👋</p>
+            <p>Bem-vindo, {user?.displayName || 'Usuário'} 👋</p>
           </div>
           <button className="btn btn-secondary" onClick={loadData}>
             🔄 Atualizar
@@ -124,13 +126,21 @@ export default function DashboardPage() {
       </div>
 
       {instagramData ? null : (
-        <button className="btn btn-primary" onClick={() => {
-          // Open Instagram OAuth flow
-          window.location.href = `${import.meta.env.VITE_API_URL}/auth/instagram`;
-        }}>
+        <button className="btn btn-primary" onClick={() => setShowIgModal(true)}>
           Conectar Instagram
         </button>
       )}
+
+      {showIgModal && (
+        <InstagramLoginModal 
+          onClose={() => setShowIgModal(false)} 
+          onSuccess={() => {
+            setShowIgModal(false);
+            checkAuth(); // reload context to get ig data
+          }}
+        />
+      )}
+
       {/* Posts Grid */}
       {loading ? (
         <div className="loading-container">

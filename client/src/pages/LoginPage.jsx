@@ -31,7 +31,7 @@ export default function LoginPage() {
       navigate('/dashboard');
     } catch (err) {
       console.error('Erro ao fazer login com o Google:', err);
-      alert('Falha ao fazer login com o Google.');
+      alert('Falha ao fazer login com o Google: ' + err.message);
     }
   };
 

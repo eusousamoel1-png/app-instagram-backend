@@ -4,7 +4,8 @@
  */
 const cron = require('node-cron');
 const firebaseService = require('./firebaseService');
-const instagramService = require('./instagramService');
+const instagramPrivateService = require('./instagramPrivateService');
+const axios = require('axios');
 
 let isRunning = false;
 
@@ -64,15 +65,9 @@ async function processScheduledPosts() {
     // 2.2 Obter configuração do usuário (token + IG user ID)
     const config = await firebaseService.getConfig(userId);
 
-    if (!config || !config.accessToken || !config.igUserId) {
-      console.error(`❌ Configuração incompleta para usuário ${userId}. Faça login via OAuth primeiro.`);
+    if (!config || !config.igSession) {
+      console.error(`❌ Sessão do Instagram ausente para usuário ${userId}. Faça login com o Instagram primeiro.`);
       continue;
-    }
-
-    // 2.3 Verificar rate limit da API
-    const limit = await instagramService.getPublishingLimit(config.igUserId, config.accessToken);
-    if (limit) {
-      console.log(`   📊 Quota usage (User ${userId}): ${JSON.stringify(limit)}`);
     }
 
     try {
@@ -86,12 +81,15 @@ async function processScheduledPosts() {
         ? `${post.caption}\n\n${post.hashtags}`
         : post.caption;
 
-      // Publicar no Instagram
-      const result = await instagramService.publishPost(
-        config.igUserId,
-        post.imageUrl,
-        fullCaption,
-        config.accessToken
+      // Download the image as a buffer
+      const imageResponse = await axios.get(post.imageUrl, { responseType: 'arraybuffer' });
+      const imageBuffer = Buffer.from(imageResponse.data);
+
+      // Publicar no Instagram (API Privada)
+      const result = await instagramPrivateService.publishPhoto(
+        userId,
+        imageBuffer,
+        fullCaption
       );
 
       // Sucesso — atualizar no Firestore

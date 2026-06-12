@@ -98,6 +98,56 @@ Responda EXATAMENTE neste formato JSON (sem markdown):
 }
 
 /**
+ * Gerar múltiplas legendas e prompts de imagem em lote
+ */
+async function generateBatchCaptions(niche, count = 7, keywords = [], tone = 'profissional e motivador') {
+  ensureOpenAI();
+  console.log(`✍️  Gerando ${count} ideias de posts para nicho: "${niche}"...`);
+
+  const systemPrompt = `Você é um social media manager especialista em Instagram para marcas do nicho de ${niche}. 
+Seu trabalho é criar uma grade de conteúdo com ${count} posts diferentes, cobrindo diversos ângulos (educacional, motivacional, bastidores, venda, etc).
+
+Regras:
+- Escreva em português brasileiro.
+- Use emojis estrategicamente (não exagere).
+- Cada legenda deve ter entre 100 e 300 caracteres, e incluir um CTA.
+- Tom: ${tone}.
+- Para cada post, crie um "imagePrompt" curto e descritivo em inglês para o DALL-E/Midjourney gerar a imagem (foco em ${niche}).`;
+
+  const userPrompt = `Crie a grade de ${count} posts sobre: ${niche}.
+${keywords.length > 0 ? `Palavras-chave para incorporar: ${keywords.join(', ')}` : ''}
+
+Responda EXATAMENTE neste formato JSON (sem markdown, APENAS O JSON):
+{
+  "posts": [
+    {
+      "caption": "texto da legenda",
+      "hashtags": ["#hashtag1", "#hashtag2"],
+      "imagePrompt": "A highly detailed professional photography of..."
+    }
+  ]
+}`;
+
+  const response = await openai.chat.completions.create({
+    model: 'gpt-4o',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userPrompt },
+    ],
+    temperature: 0.8,
+    max_tokens: 2500,
+    response_format: { type: 'json_object' },
+  });
+
+  const content = response.choices[0].message.content;
+  const parsed = JSON.parse(content);
+
+  console.log(`   ✅ Lote de ${parsed.posts?.length || 0} posts gerado.`);
+
+  return parsed.posts || [];
+}
+
+/**
  * Gerar conteúdo completo (imagem + legenda + hashtags)
  */
 async function generateFullContent(niche, keywords = [], tone = 'profissional e motivador', style = 'vibrant') {
@@ -145,5 +195,6 @@ A imagem deve transmitir confiança, saúde e qualidade de vida.`;
 module.exports = {
   generateImage,
   generateCaption,
+  generateBatchCaptions,
   generateFullContent,
 };

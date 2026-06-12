@@ -38,9 +38,11 @@ try {
 /**
  * Criar um novo post agendado
  */
-async function createPost(postData) {
+async function createPost(userId, postData) {
+  if (!userId) throw new Error('userId is required to create post');
   const docRef = await db.collection('posts').add({
     ...postData,
+    userId,
     status: 'scheduled',
     createdAt: admin.firestore.FieldValue.serverTimestamp(),
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -51,8 +53,9 @@ async function createPost(postData) {
 /**
  * Buscar todos os posts (com filtro opcional de status)
  */
-async function getPosts(status = null, limit = 50) {
-  let query = db.collection('posts').orderBy('scheduledAt', 'asc');
+async function getPosts(userId, status = null, limit = 50) {
+  if (!userId) throw new Error('userId is required to get posts');
+  let query = db.collection('posts').where('userId', '==', userId).orderBy('scheduledAt', 'asc');
 
   if (status) {
     query = query.where('status', '==', status);
@@ -69,16 +72,22 @@ async function getPosts(status = null, limit = 50) {
 /**
  * Buscar um post por ID
  */
-async function getPostById(postId) {
+async function getPostById(userId, postId) {
+  if (!userId) throw new Error('userId is required');
   const doc = await db.collection('posts').doc(postId).get();
   if (!doc.exists) return null;
-  return { id: doc.id, ...doc.data() };
+  const data = doc.data();
+  if (data.userId !== userId) return null; // Ensure the post belongs to the user
+  return { id: doc.id, ...data };
 }
 
 /**
  * Atualizar status e dados de um post
  */
-async function updatePost(postId, updateData) {
+async function updatePost(userId, postId, updateData) {
+  const post = await getPostById(userId, postId);
+  if (!post) throw new Error('Post not found or unauthorized');
+
   await db.collection('posts').doc(postId).update({
     ...updateData,
     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -89,7 +98,10 @@ async function updatePost(postId, updateData) {
 /**
  * Deletar um post
  */
-async function deletePost(postId) {
+async function deletePost(userId, postId) {
+  const post = await getPostById(userId, postId);
+  if (!post) throw new Error('Post not found or unauthorized');
+
   await db.collection('posts').doc(postId).delete();
   return { id: postId, deleted: true };
 }
@@ -118,16 +130,18 @@ async function getPostsReadyToPublish() {
 /**
  * Salvar ou atualizar configuração (token, conta IG, etc.)
  */
-async function saveConfig(configData) {
-  await db.collection('config').doc('main').set(configData, { merge: true });
+async function saveConfig(userId, configData) {
+  if (!userId) throw new Error('userId is required to save config');
+  await db.collection('users').doc(userId).collection('config').doc('main').set(configData, { merge: true });
   return configData;
 }
 
 /**
  * Buscar configuração
  */
-async function getConfig() {
-  const doc = await db.collection('config').doc('main').get();
+async function getConfig(userId) {
+  if (!userId) throw new Error('userId is required to get config');
+  const doc = await db.collection('users').doc(userId).collection('config').doc('main').get();
   if (!doc.exists) return null;
   return doc.data();
 }
@@ -135,9 +149,10 @@ async function getConfig() {
 /**
  * Incrementar contador diário de posts
  */
-async function incrementDailyCount() {
+async function incrementDailyCount(userId) {
+  if (!userId) throw new Error('userId is required');
   const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-  const ref = db.collection('config').doc('dailyStats');
+  const ref = db.collection('users').doc(userId).collection('config').doc('dailyStats');
   const doc = await ref.get();
 
   if (doc.exists && doc.data().date === today) {
@@ -154,14 +169,16 @@ async function incrementDailyCount() {
 /**
  * Obter contagem diária atual
  */
-async function getDailyCount() {
+async function getDailyCount(userId) {
+  if (!userId) return 0;
   const today = new Date().toISOString().split('T')[0];
-  const doc = await db.collection('config').doc('dailyStats').get();
+  const doc = await db.collection('users').doc(userId).collection('config').doc('dailyStats').get();
   if (!doc.exists || doc.data().date !== today) return 0;
   return doc.data().count || 0;
 }
 
 module.exports = {
+  admin,
   db,
   createPost,
   getPosts,

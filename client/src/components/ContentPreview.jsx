@@ -1,9 +1,12 @@
 /**
  * ContentPreview — Preview do conteúdo gerado antes de agendar
  */
+import { useAuth } from '../contexts/AuthContext';
 import './ContentPreview.css';
 
 export default function ContentPreview({ content, onSchedule, onRegenerate, loading }) {
+  const { instagramData } = useAuth();
+  const username = instagramData?.username || 'seu_perfil';
   if (!content) return null;
 
   return (
@@ -29,7 +32,7 @@ export default function ContentPreview({ content, onSchedule, onRegenerate, load
             {/* Instagram Header */}
             <div className="ig-header">
               <div className="ig-avatar-small"></div>
-              <span className="ig-username">powerencapsulados</span>
+              <span className="ig-username">{username}</span>
               <span className="ig-dots">•••</span>
             </div>
 
@@ -51,7 +54,7 @@ export default function ContentPreview({ content, onSchedule, onRegenerate, load
 
             {/* Caption */}
             <div className="ig-caption">
-              <strong>powerencapsulados</strong> {content.caption}
+              <strong>{username}</strong> {content.caption}
             </div>
 
             {/* Hashtags */}

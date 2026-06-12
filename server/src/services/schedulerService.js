@@ -36,16 +36,7 @@ function initScheduler() {
  * Processar posts agendados
  */
 async function processScheduledPosts() {
-  // 1. Verificar limite diário
-  const dailyCount = await firebaseService.getDailyCount();
-  const maxDaily = parseInt(process.env.MAX_POSTS_PER_DAY) || 10;
-
-  if (dailyCount >= maxDaily) {
-    console.log(`🚫 Limite diário atingido (${dailyCount}/${maxDaily}). Aguardando próximo dia.`);
-    return;
-  }
-
-  // 2. Buscar posts prontos
+  // 1. Buscar posts prontos
   const posts = await firebaseService.getPostsReadyToPublish();
 
   if (posts.length === 0) {
@@ -53,33 +44,42 @@ async function processScheduledPosts() {
   }
 
   console.log(`\n📋 ${posts.length} post(s) prontos para publicar`);
+  const maxDaily = parseInt(process.env.MAX_POSTS_PER_DAY) || 10;
 
-  // 3. Obter configuração (token + IG user ID)
-  const config = await firebaseService.getConfig();
-
-  if (!config || !config.accessToken || !config.igUserId) {
-    console.error('❌ Configuração incompleta. Faça login via OAuth primeiro.');
-    return;
-  }
-
-  // 4. Verificar rate limit da API
-  const limit = await instagramService.getPublishingLimit(config.igUserId, config.accessToken);
-  if (limit) {
-    console.log(`   📊 Quota usage: ${JSON.stringify(limit)}`);
-  }
-
-  // 5. Publicar cada post (com delay entre eles)
+  // 2. Processar cada post
   for (const post of posts) {
+    const userId = post.userId;
+    if (!userId) {
+      console.error(`❌ Post ${post.id} não possui userId. Ignorando.`);
+      continue;
+    }
+
+    // 2.1 Verificar limite diário do usuário
+    const dailyCount = await firebaseService.getDailyCount(userId);
     if (dailyCount >= maxDaily) {
-      console.log('🚫 Limite diário atingido durante processamento.');
-      break;
+      console.log(`🚫 Limite diário atingido para usuário ${userId} (${dailyCount}/${maxDaily}). Ignorando post ${post.id}.`);
+      continue;
+    }
+
+    // 2.2 Obter configuração do usuário (token + IG user ID)
+    const config = await firebaseService.getConfig(userId);
+
+    if (!config || !config.accessToken || !config.igUserId) {
+      console.error(`❌ Configuração incompleta para usuário ${userId}. Faça login via OAuth primeiro.`);
+      continue;
+    }
+
+    // 2.3 Verificar rate limit da API
+    const limit = await instagramService.getPublishingLimit(config.igUserId, config.accessToken);
+    if (limit) {
+      console.log(`   📊 Quota usage (User ${userId}): ${JSON.stringify(limit)}`);
     }
 
     try {
       // Marcar como "publishing"
-      await firebaseService.updatePost(post.id, { status: 'publishing' });
+      await firebaseService.updatePost(userId, post.id, { status: 'publishing' });
 
-      console.log(`\n🔄 Publicando post ${post.id}...`);
+      console.log(`\n🔄 Publicando post ${post.id} (User: ${userId})...`);
 
       // Montar caption completa com hashtags
       const fullCaption = post.hashtags
@@ -95,13 +95,13 @@ async function processScheduledPosts() {
       );
 
       // Sucesso — atualizar no Firestore
-      await firebaseService.updatePost(post.id, {
+      await firebaseService.updatePost(userId, post.id, {
         status: 'published',
         igMediaId: result.mediaId,
         publishedAt: new Date().toISOString(),
       });
 
-      await firebaseService.incrementDailyCount();
+      await firebaseService.incrementDailyCount(userId);
 
       console.log(`✅ Post ${post.id} publicado com sucesso! Media ID: ${result.mediaId}`);
 
@@ -114,7 +114,7 @@ async function processScheduledPosts() {
     } catch (error) {
       console.error(`❌ Erro ao publicar post ${post.id}:`, error.message);
 
-      await firebaseService.updatePost(post.id, {
+      await firebaseService.updatePost(userId, post.id, {
         status: 'failed',
         error: error.response?.data?.error?.message || error.message,
       });

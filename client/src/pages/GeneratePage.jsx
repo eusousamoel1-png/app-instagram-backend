@@ -3,9 +3,10 @@
  */
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { generateContent, schedulePost } from '../services/api';
+import { generateContent, generateBatchContent, generateImage, schedulePost } from '../services/api';
 import NicheSelector from '../components/NicheSelector';
 import ContentPreview from '../components/ContentPreview';
+import FeedGrid from '../components/FeedGrid';
 import toast from 'react-hot-toast';
 import './GeneratePage.css';
 
@@ -19,12 +20,15 @@ export default function GeneratePage() {
     style: 'vibrant',
   });
 
-  const [content, setContent] = useState(null);
+  const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [generatingImages, setGeneratingImages] = useState({});
+  const [selectedPost, setSelectedPost] = useState(null);
+  
   const [showScheduler, setShowScheduler] = useState(false);
   const [scheduledAt, setScheduledAt] = useState('');
 
-  async function handleGenerate() {
+  async function handleGenerateBatch() {
     if (!config.niche.trim()) {
       toast.error('Informe um nicho para gerar o conteúdo');
       return;
@@ -32,23 +36,23 @@ export default function GeneratePage() {
 
     try {
       setLoading(true);
-      setContent(null);
+      setPosts([]);
 
       const keywordsArray = config.keywords
         ? config.keywords.split(',').map(k => k.trim()).filter(Boolean)
         : [];
 
-      toast.loading('Gerando conteúdo com IA... Isso pode levar até 1 minuto.', { id: 'generate' });
+      toast.loading('Analisando nicho e criando grade de conteúdo... (aprox 30s)', { id: 'generate' });
 
-      const result = await generateContent({
+      const result = await generateBatchContent({
         niche: config.niche,
         keywords: keywordsArray,
         tone: config.tone,
-        style: config.style,
+        count: 7
       });
 
-      setContent(result.data);
-      toast.success('Conteúdo gerado com sucesso!', { id: 'generate' });
+      setPosts(result.data);
+      toast.success('Grade gerada com sucesso! Clique em um post para gerar a imagem.', { id: 'generate' });
     } catch (error) {
       console.error('Erro:', error);
       toast.error(error.response?.data?.error || 'Erro ao gerar conteúdo', { id: 'generate' });
@@ -57,7 +61,39 @@ export default function GeneratePage() {
     }
   }
 
+  async function handleGenerateImageForPost(post) {
+    if (post.imageUrl || generatingImages[post.id]) return;
+
+    try {
+      setGeneratingImages(prev => ({ ...prev, [post.id]: true }));
+      toast.loading('Gerando imagem com DALL-E...', { id: `img-${post.id}` });
+
+      const result = await generateImage({
+        niche: config.niche,
+        style: config.style,
+      });
+
+      // Update post in the list
+      setPosts(prev => prev.map(p => {
+        if (p.id === post.id) {
+          const updated = { ...p, imageUrl: result.data.imageUrl, revisedPrompt: result.data.revisedPrompt };
+          // If this post is currently selected in modal, update it there too
+          if (selectedPost && selectedPost.id === post.id) setSelectedPost(updated);
+          return updated;
+        }
+        return p;
+      }));
+
+      toast.success('Imagem gerada!', { id: `img-${post.id}` });
+    } catch (error) {
+      toast.error('Erro ao gerar imagem', { id: `img-${post.id}` });
+    } finally {
+      setGeneratingImages(prev => ({ ...prev, [post.id]: false }));
+    }
+  }
+
   function handleScheduleClick(contentData) {
+    setSelectedPost(null); // close modal if open
     setShowScheduler(true);
     // Set default date to 1 hour from now
     const defaultDate = new Date(Date.now() + 60 * 60 * 1000);
@@ -75,14 +111,16 @@ export default function GeneratePage() {
       toast.loading('Agendando post...', { id: 'schedule' });
 
       await schedulePost({
-        imageUrl: content.imageUrl,
-        caption: content.caption,
-        hashtags: content.hashtagsString || content.hashtags?.join(' ') || '',
+        imageUrl: selectedPost.imageUrl,
+        caption: selectedPost.caption,
+        hashtags: selectedPost.hashtags?.join(' ') || '',
         scheduledAt: new Date(scheduledAt).toISOString(),
       });
 
       toast.success('Post agendado com sucesso!', { id: 'schedule' });
-      setContent(null);
+      // Remove from list
+      setPosts(prev => prev.filter(p => p.id !== selectedPost.id));
+      setSelectedPost(null);
       setShowScheduler(false);
       navigate('/schedule');
     } catch (error) {
@@ -101,31 +139,63 @@ export default function GeneratePage() {
       <div className="card generate-config">
         <NicheSelector config={config} onChange={setConfig} />
 
-        <button
-          className="btn btn-primary btn-lg generate-btn"
-          onClick={handleGenerate}
-          disabled={loading}
-          id="btn-generate"
-        >
-          {loading ? (
-            <>
-              <div className="spinner spinner-sm"></div>
-              Gerando...
-            </>
-          ) : (
-            <>🤖 Gerar Conteúdo com IA</>
-          )}
-        </button>
+        <div className="flex-row gap-8 mt-4">
+          <button
+            className="btn btn-primary btn-lg generate-btn"
+            onClick={handleGenerateBatch}
+            disabled={loading}
+            id="btn-generate-batch"
+            style={{ flex: 1 }}
+          >
+            {loading ? (
+              <>
+                <div className="spinner spinner-sm"></div>
+                Gerando Semana (7 Posts)...
+              </>
+            ) : (
+              <>📅 Gerar Semana com IA</>
+            )}
+          </button>
+        </div>
       </div>
 
-      {/* Content Preview */}
-      {content && (
-        <ContentPreview
-          content={content}
-          onSchedule={handleScheduleClick}
-          onRegenerate={handleGenerate}
-          loading={loading}
-        />
+      {/* Grid of Posts */}
+      <FeedGrid 
+        posts={posts} 
+        onPostClick={(post) => setSelectedPost(post)} 
+        generatingImages={generatingImages}
+      />
+
+      {/* Content Preview Modal */}
+      {selectedPost && (
+        <div className="schedule-modal-overlay" onClick={() => setSelectedPost(null)}>
+          <div className="schedule-modal preview-modal animate-fadeIn" onClick={e => e.stopPropagation()} style={{ maxWidth: '800px', width: '90%' }}>
+            <div className="flex-between mb-4">
+              <h3 style={{ margin: 0 }}>Visualizar Post</h3>
+              <button className="btn btn-ghost btn-sm" onClick={() => setSelectedPost(null)}>✕ Fechar</button>
+            </div>
+            
+            <ContentPreview
+              content={selectedPost}
+              onSchedule={() => handleScheduleClick(selectedPost)}
+              onRegenerate={() => handleGenerateImageForPost(selectedPost)}
+              loading={generatingImages[selectedPost.id]}
+            />
+            
+            {!selectedPost.imageUrl && (
+              <div style={{ textAlign: 'center', padding: '16px', background: 'var(--surface)', borderRadius: '8px', marginTop: '16px' }}>
+                <p>Nenhuma imagem gerada ainda para este post.</p>
+                <button 
+                  className="btn btn-primary" 
+                  onClick={() => handleGenerateImageForPost(selectedPost)}
+                  disabled={generatingImages[selectedPost.id]}
+                >
+                  {generatingImages[selectedPost.id] ? 'Gerando imagem...' : '🎨 Gerar Imagem DALL-E'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Schedule Modal */}

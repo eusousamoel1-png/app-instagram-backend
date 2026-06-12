@@ -66,7 +66,7 @@ app.get('/health', (req, res) => {
 // ── Inicializar servidor ───────────────────────────────────────
 app.listen(PORT, () => {
   console.log(`\n🚀 Servidor rodando em http://localhost:${PORT}`);
-  console.log(`📸 Instagram: @${process.env.INSTAGRAM_USERNAME || 'powerencapsulados'}`);
+  console.log(`📸 Modo multi-usuário ativo`);
   console.log('');
 
   // Iniciar o scheduler de postagens automáticas

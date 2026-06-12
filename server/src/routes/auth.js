@@ -8,11 +8,18 @@ const instagramService = require('../services/instagramService');
 const firebaseService = require('../services/firebaseService');
 const { authLimiter } = require('../middleware/rateLimiter');
 
+const { requireAuth } = require('../middleware/authMiddleware');
+
 /**
  * GET /auth/instagram
  * Redireciona o usuário para a tela de login do Facebook/Instagram
  */
 router.get('/instagram', authLimiter, (req, res) => {
+  const uid = req.query.uid;
+  if (!uid) {
+    return res.status(400).send('UID is required to connect Instagram');
+  }
+
   const appId = process.env.META_APP_ID;
   const redirectUri = encodeURIComponent(process.env.META_REDIRECT_URI);
   const scopes = [
@@ -22,7 +29,7 @@ router.get('/instagram', authLimiter, (req, res) => {
     'pages_read_engagement',
   ].join(',');
 
-  const authUrl = `https://www.facebook.com/v20.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&scope=${scopes}&response_type=code`;
+  const authUrl = `https://www.facebook.com/v20.0/dialog/oauth?client_id=${appId}&redirect_uri=${redirectUri}&scope=${scopes}&response_type=code&state=${uid}`;
 
   console.log(`🔑 Redirecionando para OAuth: ${authUrl}`);
   res.redirect(authUrl);
@@ -33,7 +40,8 @@ router.get('/instagram', authLimiter, (req, res) => {
  * Callback do OAuth — recebe o code, troca por token, salva no Firestore
  */
 router.get('/callback', authLimiter, async (req, res) => {
-  const { code, error } = req.query;
+  const { code, error, state } = req.query;
+  const uid = state; // The uid is passed back as state
 
   if (error) {
     console.error('❌ Erro no OAuth:', error);
@@ -81,7 +89,11 @@ router.get('/callback', authLimiter, async (req, res) => {
     // 6. Salvar tudo no Firestore
     const expiresAt = new Date(Date.now() + (longLivedData.expires_in * 1000));
 
-    await firebaseService.saveConfig({
+    if (!uid) {
+      throw new Error('UID ausente no callback');
+    }
+
+    await firebaseService.saveConfig(uid, {
       accessToken: page.access_token, // page token (não expira enquanto long-lived user token for válido)
       userAccessToken: longLivedData.access_token,
       tokenExpiresAt: expiresAt.toISOString(),
@@ -111,9 +123,10 @@ router.get('/callback', authLimiter, async (req, res) => {
  * GET /auth/status
  * Retorna status de autenticação
  */
-router.get('/status', async (req, res) => {
+router.get('/status', requireAuth, async (req, res) => {
   try {
-    const config = await firebaseService.getConfig();
+    const uid = req.user.uid;
+    const config = await firebaseService.getConfig(uid);
 
     if (!config || !config.accessToken) {
       return res.json({ authenticated: false });
@@ -139,9 +152,10 @@ router.get('/status', async (req, res) => {
  * POST /auth/logout
  * Limpa token do Firestore
  */
-router.post('/logout', async (req, res) => {
+router.post('/logout', requireAuth, async (req, res) => {
   try {
-    await firebaseService.saveConfig({
+    const uid = req.user.uid;
+    await firebaseService.saveConfig(uid, {
       accessToken: null,
       userAccessToken: null,
       tokenExpiresAt: null,

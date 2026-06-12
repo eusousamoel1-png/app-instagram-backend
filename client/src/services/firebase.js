@@ -2,8 +2,10 @@
  * Firebase Client SDK Configuration
  * Projeto: app-postagem-instagram
  */
+
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
+import { getAuth, GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: "AIzaSyBR3s-Tf3SNRYc2T8990RYG0kLYRzg4zJU",
@@ -17,4 +19,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
+export const auth = getAuth(app);
+export const googleProvider = new GoogleAuthProvider();
+export { signInWithPopup };
 export default app;

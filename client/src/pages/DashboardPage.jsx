@@ -9,7 +9,7 @@ import toast from 'react-hot-toast';
 import './DashboardPage.css';
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, instagramData } = useAuth();
   const [posts, setPosts] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -123,6 +123,14 @@ export default function DashboardPage() {
         </button>
       </div>
 
+      {instagramData ? null : (
+        <button className="btn btn-primary" onClick={() => {
+          // Open Instagram OAuth flow
+          window.location.href = `${import.meta.env.VITE_API_URL}/auth/instagram`;
+        }}>
+          Conectar Instagram
+        </button>
+      )}
       {/* Posts Grid */}
       {loading ? (
         <div className="loading-container">

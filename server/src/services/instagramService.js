@@ -135,7 +135,7 @@ async function checkContainerStatus(containerId, accessToken) {
  * Fluxo completo de publicação: criar container → aguardar → publicar
  */
 async function publishPost(igUserId, imageUrl, caption, accessToken) {
-  console.log(`📤 Iniciando publicação para @powerencapsulados...`);
+  console.log(`📤 Iniciando publicação para IG User ${igUserId}...`);
 
   // Step 1 — Criar container
   const container = await createMediaContainer(igUserId, imageUrl, caption, accessToken);

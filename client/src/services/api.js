@@ -2,6 +2,7 @@
  * API Service — chamadas ao backend Express
  */
 import axios from 'axios';
+import { auth } from './firebase';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -14,10 +15,21 @@ const api = axios.create({
   withCredentials: true,
 });
 
+api.interceptors.request.use(async (config) => {
+  if (auth.currentUser) {
+    const token = await auth.currentUser.getIdToken();
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+}, (error) => {
+  return Promise.reject(error);
+});
+
 // ── Auth ──────────────────────────────────────────
 
 export function getLoginUrl() {
-  return `${API_BASE}/auth/instagram`;
+  const uid = auth.currentUser ? auth.currentUser.uid : '';
+  return `${API_BASE}/auth/instagram?uid=${uid}`;
 }
 
 export async function getAuthStatus() {
@@ -44,6 +56,11 @@ export async function generateCaption(params) {
 
 export async function generateImage(params) {
   const res = await api.post('/content/generate-image', params);
+  return res.data;
+}
+
+export async function generateBatchContent(params) {
+  const res = await api.post('/content/generate-batch', params);
   return res.data;
 }
 

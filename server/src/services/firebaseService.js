@@ -4,33 +4,55 @@
  */
 const admin = require('firebase-admin');
 const path = require('path');
-
 const fs = require('fs');
 
-// Inicializar Firebase Admin
-// Resolve path: if env var is set use it (resolved from CWD), otherwise default to server root
-const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH
-  ? path.resolve(process.env.FIREBASE_SERVICE_ACCOUNT_PATH)
-  : path.join(__dirname, '../../firebase-service-account.json');
+// Determine service account credentials
+let serviceAccount;
+if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+  try {
+    serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+    console.log('✅ Firebase admin loaded from FIREBASE_SERVICE_ACCOUNT_JSON');
+  } catch (e) {
+    console.warn('⚠️ Failed to parse FIREBASE_SERVICE_ACCOUNT_JSON', e);
+  }
+} else if (process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PROJECT_ID) {
+  serviceAccount = {
+    type: 'service_account',
+    project_id: process.env.FIREBASE_PROJECT_ID,
+    private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID || 'auto-generated',
+    private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    client_email: process.env.FIREBASE_CLIENT_EMAIL,
+    client_id: process.env.FIREBASE_CLIENT_ID || 'auto-generated',
+    auth_uri: 'https://accounts.google.com/o/oauth2/auth',
+    token_uri: 'https://oauth2.googleapis.com/token',
+    auth_provider_x509_cert_url: 'https://www.googleapis.com/oauth2/v1/certs',
+    client_x509_cert_url: process.env.FIREBASE_CLIENT_CERT_URL || ''
+  };
+  console.log('✅ Firebase admin built from individual env vars');
+} else {
+  // Fallback to file path if exists
+  const serviceAccountPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH
+    ? path.resolve(process.env.FIREBASE_SERVICE_ACCOUNT_PATH)
+    : path.join(__dirname, '../../firebase-service-account.json');
+  try {
+    const raw = fs.readFileSync(serviceAccountPath, 'utf8');
+    serviceAccount = JSON.parse(raw);
+    console.log('✅ Firebase admin loaded from file', serviceAccountPath);
+  } catch (e) {
+    console.warn('⚠️ Firebase admin not initialized: missing credentials', e.message);
+  }
+}
 
 let db;
-
-try {
-  // Use fs + JSON.parse instead of require() to avoid caching issues and
-  // properly resolve paths relative to CWD rather than __dirname
-  const serviceAccountRaw = fs.readFileSync(serviceAccountPath, 'utf8');
-  const serviceAccount = JSON.parse(serviceAccountRaw);
+if (serviceAccount) {
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
-    projectId: serviceAccount.project_id || 'app-postagem-instagram',
+    projectId: serviceAccount.project_id || process.env.FIREBASE_PROJECT_ID,
   });
   db = admin.firestore();
-  console.log('✅ Firebase Admin inicializado com sucesso');
-  console.log(`   📁 Service account: ${serviceAccountPath}`);
-} catch (error) {
-  console.warn('⚠️  Firebase Admin não inicializado:', error.message);
-  console.warn(`   📁 Caminho tentado: ${serviceAccountPath}`);
-  console.warn('   Certifique-se de que o arquivo firebase-service-account.json existe');
+  console.log('✅ Firebase Admin initialized');
+} else {
+  console.warn('⚠️ Firebase Admin failed to init – backend auth will not work');
 }
 
 // ── Posts Collection ──────────────────────────────────────────

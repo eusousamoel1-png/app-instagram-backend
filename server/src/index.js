@@ -15,6 +15,7 @@ const PORT = process.env.PORT || 3001;
 // ── Middlewares ────────────────────────────────────────────────
 const allowedOrigins = [
   process.env.CLIENT_URL,
+  'https://app-instagram-backend-6fxd.onrender.com',
   'http://localhost:5173',
   'http://localhost:3000',
 ].filter(Boolean);

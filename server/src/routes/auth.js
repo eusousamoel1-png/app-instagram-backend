@@ -12,7 +12,7 @@ const { requireAuth } = require('../middleware/authMiddleware');
  * POST /auth/login-direct
  * Recebe username e password do cliente e loga usando instagram-private-api
  */
-router.post('/login-direct', authLimiter, requireAuth, async (req, res) => {
+router.post('/login-direct', authLimiter, async (req, res) => {
   const { username, password } = req.body;
   const uid = req.user.uid;
 
